@@ -19,7 +19,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Este post pretende presentar y desarrollar de manera breve y puntual cuestiones que responden al trabajo práctico de Estadística Computacional del posgrado en Big Data e Inteligencia Geoespacial de FLACSO Argentina (2020). Parte del trabajo se pensó en conjunto con Facundo Benitez Piloni.
 
-
 ```{r, include=FALSE}
 library(tidyverse)
 library(corrr)
