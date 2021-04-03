@@ -1,0 +1,457 @@
+---
+title: "Regresiones fútbol argentino"
+author: "Mateo W. Racca"
+date: "`r format(Sys.time(), '%d/%m/%y')`"
+output:
+   html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: sandstone
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# TP Estadística Computacional
+
+Este post pretende presentar y desarrollar de manera breve y puntual cuestiones que responden al trabajo práctico de Estadística Computacional del posgrado en Big Data e Inteligencia Geoespacial de FLACSO Argentina (2020). Parte del trabajo se pensó en conjunto con Facundo Benitez Piloni.
+
+
+```{r, include=FALSE}
+library(tidyverse)
+library(corrr)
+library(knitr)
+```
+
+
+# Regresiones
+
+El apartado de regresiones tiene como objetivo usar una regresión lineal para explicar la variable *Pts* (puntos) a partir de las variables *Pts_2012_13*, *Pts_2013_14*, *Pts_2014*, *inversion_abs* (inversión absoluta), *inversion_relativa* (inversión relativa), *valor* (valor en millones de euros), *libertadores* (si participó en el 2015 en la Copa Libertadores), *sudamericana* (si participó en el 2015 en la Copa Sudamericana) y *ascenso* (si ascendió).
+
+
+Ahora, empecemos con los datos:
+
+```{r}
+#cargamos el .csv
+datos_generales <- read.csv2("datos_2015.csv", 
+                             sep = ";",
+                             encoding = "UTF-8")
+
+#usamos str para ver con qué variables (y de qué tipo) nos encontramos
+str(datos_generales)
+```
+
+Como en el dataset original hay 49 variables y las mencionadas en la consigna (y necesarias para este ejercicio) son 10, vamos a seleccionar variables. 
+
+```{r}
+#seleccionamos las variables necesarias
+datos <- datos_generales %>% 
+  select(Pts_2012_13:ascenso, Pts)
+#repasamos para ver qué variables seleccionamos
+str(datos) 
+```
+
+Antes de poder trabajar con las regresiones, necesitamos cambiar algunos tipos de variables a numéricas y otras a lógicas: 
+
+```{r}
+#tomamos las variables ubicadas en las columnas 1-6 y 10 y las transformamos en numéricas
+datos[,1:6] <- sapply(datos[,1:6],as.numeric)
+#tomamos las variables ubicadas en la columna 10 y la transformamos en numérica
+datos[,10] <- sapply(datos[,10],as.numeric)
+#tomamos las variables ubicadas en las columnas 7-9 y las transformamos en numéricas
+datos[,7:9] <- sapply(datos[,7:9],as.logical)
+#repasamos para ver qué variables seleccionamos
+str(datos) 
+```
+
+
+## Regresión Lineal Simple 
+
+En estadística, la regresión lineal es un modelo matemático usado para aproximar la relación de dependencia entre una variable dependiente *y* con la variable independiente *x*. Se puede representar con la fórmula:
+
+***y = a + b * x***
+
+A cada punto en *x* le corresponde un valor en *y*. El valor de *y* es resultado de multiplicar *x* por la pendiente *b*, y de sumar la ordenada al origen *a*. Se le llama “ordenada al origen” o “intersección” ya que es el valor donde la recta intersecta con el eje *y* cuando *x* vale 0.
+
+En una regresión lineal, el “modelo” que creamos es una línea que minimiza la distancia al cuadrado de todos los puntos, lo que nos permite conocer cuánto varía la variable dependiente *y* por cada cambio de unidad en la variable independiente *x* y también predecir o estimar valores.
+
+
+Vamos a recordar los supuestos del modelo de regresión lineal:
+* *Linealidad*
+* *Independencia*
+* *Normalidad* 
+* *Homocedasticidad* 
+
+
+En este dataset la variable dependiente *y* es la variable *Pts*, que representa la cantidad de puntos alcanzados por los distintos clubes que compitieron en la primera división del fútbol argentino durante el campeonato 2015. 
+
+Vamos a ver esto en un histograma:
+
+```{r}
+hist(datos$Pts, main = "Histograma: puntos obtenidos en el torneo 2015", 
+     xlab = "Puntos", ylab = "Frecuencia")
+```
+
+La distribución de puntos obtenidos por los equipos en el torneo 2015 va desde los 14 hasta los 64. 
+
+
+### Correlaciones 
+
+Vamos a averiguar el grado de correlación entre las variables. Antes, vamos a recordar el criterio de evaluación del grado de correlación:
+
+* *de 0.7 a 1*: fuerte a total
+* *de 0.5 a 0.7*: moderada a fuerte
+* *de 0.3 a 0.5*: débil a moderada
+* *menor a 0.3*: nula a débil
+
+Ahora, vamos a calcular la correlación de nuestra variable dependiente *y* (Pts) con el resto de las variables. 
+
+
+### Regresión: puntos 2014 y 2015
+
+Vamos a calcular una regresión con la variable dependiente *Pts* y la independiente *Pts_2014*. Antes, vamos a ver nuestros datos en un gráfico de puntos:
+
+```{r}
+ggplot(datos) +
+  geom_point(aes(x = Pts_2014, y = Pts)) +
+  labs(title = 'Puntos en 2014 y 2015') +
+  theme_minimal()
+```
+
+
+Ahora calculamos la regresión:
+
+```{r}
+lr_Pts_2014<- lm(Pts~ Pts_2014, datos)
+
+lr_Pts_2014
+```
+
+
+Y vemos las estadísticas de resumen:
+
+```{r}
+summary(lr_Pts_2014)
+```
+
+
+*Estimate* nos devuelve el valor estimado de la ordenada al origen y la pendiente. 
+
+Nuestro modelo es significativo porque: 
+* los coeficientes de regresión son 31.5541 y 0.5017. 
+* el p-value (nivel de significación del estudio) es 0.0009849, lo que nos permite rechazar la hipótesis nula. En este caso, la *H0* plantea que la variable no es estadísticamente significativa para predecir el valor, y en consecuencia nuestra variable tiene significancia.
+
+El *R cuadrado* describe la proporción de variabilidad de la variable dependiente (*y*) del modelo y relativa a la variabilidad total. Mide el nivel de ajuste e indica qué porcentaje de la variabilidad de *y* es explicado por *x*. 
+
+En la regresión lineal entre *Pts_2014* y *Pts*, el valor de R cuadrado es *0.3019*. ¿Qué significa esto? Que el 30.2% de la variabilidad de los puntos de 2015 (la variable *Pts*) se explica por los puntos de 2014 (*Pts_2014*). El resto de la variabilidad se debe al azar o a otras variables no incluidas en este modelo. 
+
+Vamos a ver el gráfico de puntos anterior pero ahora con la recta de regresión: 
+
+```{r}
+ggplot(datos) +
+  geom_point(aes(x = Pts_2014, y = Pts)) +
+  labs(title = 'Regresión: puntos 2014 y 2015') +
+  geom_abline(aes(intercept = 31.5541, slope =  0.5017), color = 'red') +
+  xlim(c(0,50)) +
+  ylim(0,70) +
+  theme_minimal()
+```
+
+El gráfico muestra una correlación positiva entre las variables *Pts* y *Pts_2014*. Hay equipos que no tuvieron puntos en un torneo y sí en otro, y esto se debe a que no han competido. Algunos equipos que no participaron en 2014 obtuvieron entre 20 y 40 en 2015 mientras que gran parte de los equipos que alcanzaron entre 20 y 40 puntos en 2014 tuvieron un desempeño similar (a veces incluso mejor) en 2015.
+
+Es importante destacar que el modelo tiene cierto ruido, y que los puntos suelen tomar valores distanciados de la recta de regresión por lo que no está ajustado de manera ideal.
+
+
+### Regresión: puntos 2015 e inversión absoluta 
+
+Vamos a trabajar con una regresión lineal simple entre la variable *Pts* e *inversion_abs*. En esta y en la próxima regresión vamos a ir directo a los modelos y a los gráficos con sus rectas de regresión.
+
+Vamos a calcular la regresión lineal: 
+
+```{r}
+lr_inversion_absoluta <-  lm(Pts ~ inversion_abs,
+               datos)
+
+lr_inversion_absoluta
+```
+
+
+Vemos las estadísticas de resumen:
+
+```{r}
+summary(lr_inversion_absoluta)
+```
+
+
+Existe relación positiva entre las variables *Pts* e *inversion_abs*, y el modelo es significativo porque:
+* el p-value es 0.002407, por lo que podemos aceptarlo ya que como explicamos arriba rechaza la hipótesis nula. 
+* el R cuadrado es de 0.2589, lo que significa que el 25.9% de la variabilidad de los puntos de 2015 (*Pts*) se explica por la inversión (*inversión_abs*). El resto de la variabilidad se debe al azar o a otras variables no incluidas en este modelo. 
+
+Vamos a ver el gráfico de puntos anterior pero ahora con la recta de regresión: 
+
+```{r}
+ggplot(datos) +
+  geom_point(aes(x = inversion_abs, y = Pts)) +
+  labs(title = 'Regresión: puntos 2015 e inversión absoluta') +
+  geom_abline(aes(intercept = 36.1424, slope = 1.744), color = 'red') +
+  xlim(c(-4,12)) +
+  ylim(0,70) +
+  theme_minimal()
+```
+
+
+Del gráfico podemos concluir que los clubes cuya inversión absoluta fue mayor a cero y de hasta 1,75 millones alcanzaron puntajes ubicados entre los 25 los 40 puntos aproximadamente. Hay dos excepciones, que podrían ser catalogadas como outliers: una con menos de 20 puntos y otra que supera los 60 puntos. 
+
+Por otro lado, todos los equipos cuya inversión absoluta supera los 2 millones de dolares alcanzaron un puntaje mayor a 30 puntos. Tal como en el caso anterior, el modelo no se ajusta de manera deseable.
+
+
+### Regresión: puntos 2015 y valor 
+
+La última regresión lineal implica las variables *Pts* y *valor*. Calculamos la regresión: 
+
+```{r}
+lr_valor <-  lm(Pts ~ valor,
+               datos)
+
+lr_valor
+```
+
+
+Ahora vamos a ver las estadísticas de resumen:
+
+```{r}
+summary(lr_valor)
+```
+
+
+Como se pudo ver al momento de calcular la correlación, la correlación entre estas variables fue la más alta con un valor de *0,61*.
+
+Existe relación positiva entre las variables *Pts* y *valor*, y el modelo es significativo porque:
+* el p-value es 0.0002791, por lo que podemos aceptarlo. 
+* el R cuadrado es de 0.359, lo que significa que el 35.9% de la variabilidad de los puntos de 2015 (*Pts*) se explica por el valor en millones de euros (*valor*). El resto de la variabilidad se debe al azar o a otras variables no incluidas en este modelo. 
+
+
+Graficamos: 
+
+```{r}
+ggplot(datos) +
+  geom_point(aes(x = valor, y = Pts)) +
+  labs(title = 'Regresión: puntos 2015 y valor') +
+  geom_abline(aes(intercept =   29.6578 , slope= 0.7111), color = 'red') +
+  xlim(c(0,45)) +
+  ylim(0,70) +
+  theme_minimal()
+
+summary(datos$valor)
+summary(datos$Pts)
+```
+
+
+La variable *valor* (en millones de euros) toma valores en un rango de entre 14 y 64 puntos (*Pts*).
+
+
+## Residuos RL
+
+Los residuos son las diferencias encontradas entre el valor que predice un modelo para una variable y el valor observado en la práctia. Representan el desvío de cada observación respecto al valor “esperado” por nuestro modelo.
+
+Cuando los desvíos son pequeños (y en consecuencia los residuos lo son), decimos que el modelo se ajusta bien a los datos observados. Cuando los residuos son grandes ocurre lo contrario, y quizás deberíamos buscar otra forma de describir y/o modelar la relación entre las variables ya que este modelo no es óptimo.
+
+Para calcular los residuos vamos a usar la función *residuals()* y para verificar si el modelo cumple los supuestos vamos a graficar con la función *plot()*. 
+
+
+### Residuos RL Pts_2014 
+```{r}
+residuos_Pts_2014<- residuals(lr_Pts_2014)
+
+residuos_Pts_2014
+```
+
+
+Como podemos ver, la función *residuals()* nos devuelve el residuo para cada observación. Ahora vamos a graficar estos resultados: 
+
+
+```{r}
+ggplot()+
+  geom_point(aes(x=datos$Pts_2014, y=residuos_Pts_2014))+
+  geom_hline(yintercept = 0, col = 'red')+
+  labs(title="Residuos RL: Pts y Pts_2014",
+       y="residuos",
+       x="Puntos 2014") +
+  theme_minimal() 
+
+summary(residuos_Pts_2014)
+```
+
+
+Del resumen de los residuos y la visualización podemos decir que hay cierto equilibrio entre los puntos ubicados debajo y encima del cero. Hay que destacar que también encontramos una distribución desigual de residuos a lo largo del eje *x* ya que varios residuos se concentran en 0. ¿Por qué pasa esto? Porque son equipos que no obtuvieron puntos en el torneo. La distribución parece normalizarse para el resto de los valores de *x*.
+
+Ahora, vamos a ver otros gráficos que nos van a ayudar a entender mejor este tema: 
+
+```{r}
+plot(lr_Pts_2014)
+```
+
+
+*Residuals vs Fitted* nos permite entender si las variables tienen una relación lineal y verificar la dispersión. Tal como se mencionó arriba, nos encontramos frente a una concentración de residuos cuando eje *x* toma el valor 0 (cero). 
+
+*Q-Q Plot* muestra la acumulación de residuos por quantiles, si la distribución es normal los residuos se encuentran cercanos a la recta y en casos contrarios la distribución no es normal. En este caso, la distribución tiende a ser normal, aunque con algunas desviaciones en los extremos. La única observación es que hay que prestar atención a las observaciones 12, 30 y 8 ya que podrían traernos problemas.
+
+*Scale-location* nos permite comprobar la homocedasticidad del modelo utilizando los residuos de forma estandarizada.La distribución es homocedástica, ya que podemos observar la línea roja tiende a ser plana por lo que asumimos que la varianza en los residuos no cambia en función de *x*. 
+
+*Residuals vs Leverage * es clave en la detección de puntos con influencia en el cálculo de estimaciones de parámetros. Los puntos ubicados fuera de los límites de las líneas discontinuas deben ser analizados de manera individual para detectar anomalías. En este modelo no hay residuos que sobrepasen las lineas de distancia de Cook, es decir que no hay valores atípicos influyentes. 
+
+
+### Residuos RL inversión_abs
+Ahora, hacemos el análisis de los residuos de la regresión lineal simple con inversión absoluta. 
+
+```{r}
+residuos_inversionabs <- residuals(lr_inversion_absoluta)
+
+residuos_inversionabs
+```
+
+
+```{r}
+ggplot() +
+  geom_point(aes(x = datos$inversion_abs, y = residuos_inversionabs)) +
+  geom_hline(yintercept = 0, col = 'red')  +
+  labs(title="Residuos RL: Pts e inversion_abs",
+       y="residuos",
+       x="inversion_abs") +
+  theme_minimal() 
+
+```
+
+
+Como se puede observar, hay cierta aleatoriedad en la distribución de los residuos mientras que el promedios de los residuos se aproxima a cero.  Sin embargo, como el caso anterior podemos encontrar una concentración de residuos entre 0 y 2 del eje *x* y la mayoría de los puntos toman valores de entre 10 y -10 en el eje *y*. Vemos otros gráficos para entender mejor: 
+
+```{r}
+plot(lr_inversion_absoluta)
+```
+
+
+*Residual vs Fitted* confirma una dispersión aleatoria de los residuos. No nos encontramos frente a ningún patrón considerable. *Scale-Location* también confirma la distribución aleatoria de los residuos, lo que nos permite aceptar el supuesto de homocedasticidad. 
+
+*Q-Q Plot* muestra una distribución relativamente normal. Los valores 20 y 14 deberían ser considerados en casos futuros pero no son considerados valores extremos ni outliers por lo que podemos confirmar el supuesto de normalidad. 
+
+En *Residuals vs Leverage* el residuo 20 se encuentra cercano a la linea de Cook en el margen superior derecho. Aunque no pase las lineas, otra vez, esta podría ser una observación que impacte en el cálculo de estimación de parámetros. 
+
+
+### Residuos RL valor
+
+Ahora vamos a los residuos del modelo de regresión entre las variables *Pts* y *valor*. 
+
+```{r}
+residuos_valor <- residuals(lr_valor)
+
+residuos_valor
+```
+
+Graficamos:
+```{r}
+ggplot() +
+  geom_point(aes(x = datos$valor, y = residuos_valor)) +
+  geom_hline(yintercept = 0, col = 'red')  +
+  labs(title="Residuos RL: Pts y valor",
+       y="residuos",
+       x="valor") +
+  theme_minimal() 
+```
+
+
+La distribución de puntos es similar tanto encima como debajo del 0 en el eje *y*. Gran parte de los puntos se concentran entre el 0 y el 20 en el eje *x*, por lo que la distribución no es pareja ya que unos pocos equipos tienen valores mayores a 30 millones de euros.
+
+```{r}
+plot(lr_valor)
+```
+
+
+*Residuals vs Fitted* muestra una concentración de residuos en la primera parte del gráfico, al igual que *Scale-Location* donde también notamos un patrón de concentración de residuos. 
+
+*Q-Q Plot* muestra una distribución relativamente normal. El valor 5 debería ser considerado en casos futuros, pero no es considerado valor extremo ni outlier por lo que podemos confirmar el supuesto de normalidad.  
+
+*Residuals vs Leverage* nos permite observar que ningun residuo pasa las líneas de Cook, aunque el punto 19 se encuentra muy próximo y si bien esta dentro de lo esperable podría ser un valor atípico influyente.
+
+Luego de los análisis de residuos realizados hasta el momento, podemos concluir en que los residuos tienen una distribución un tanto desigual con concentraciones particulares y valores en algunos casos moderados/extremos. Vamos a trabajar con regresión lineal múltiple para analizar el caso desde otras perspectivas.
+
+
+## RL Multiple
+
+¿Por qué vamos a usar una regresión lineal múltiple? Ya que nos permite generar un modelo (lineal) en el que la variable dependiente *y* está determinada por un conjunto de variables independientes.
+
+Vamos a calcular la regresión lineal múltiple con todas las variables independientes de que están disponibles en nuestro dataset y que se relacionan con la variavle Pts (puntos en el torneo 2015): 
+
+```{r}
+mlr_0 <-  lm(Pts ~ . ,
+               datos)
+
+mlr_0
+```
+
+
+Ahora vemos las estadísticas de resumen y los coeficientes:
+```{r}
+summary(mlr_0)
+```
+
+
+El *p-value* general del modelo es de *0.0009804*, por lo que podemos considerarlo signficativo. El coeficiente de *Adjusted R-squared* es de *0.5691*, mientras que el de *Multiple R-squared* es de *0.7028*. 
+
+Las variables más significativas, con un *p-value* menor a 0.05, son *Pts_2014*, *inversion_relativa* y *valor* por lo que vamos a calcular una regresión multiple con estas variables. 
+
+```{r}
+mlr_1 <- lm(Pts ~ Pts_2014 + 
+              inversion_relativa + 
+              valor,
+            datos)
+mlr_1
+```
+
+
+```{r}
+summary(mlr_1)
+```
+
+
+A diferencia de la regresión multiple anterior, el coeficiente *Adjusted R-squared* aumenta levemente de 0.5691 *a 0.5694*. Por otro lado, el *Multiple R-squared* desciende de 0.7028 *a 0.6139*. El *p-value* es menor a 0.05, por lo que podemos aceptar el modelo ya que es significativo. 
+
+Si tomamos el *Adjusted R-squared*, podemos decir que este segundo modelo explica el *56.9%* de la variabilidad de la variable dependiente *y*, que este caso es la llamada *Pts*. 
+
+
+## Residuos RLM 
+
+Vamos a enfocarnos en los residuos de la regresión lineal múltiple ajustada con tres variables. Graficamos:
+
+```{r}
+plot(mlr_1)
+```
+
+*Residuals vs Fitted* muestra cierta linealidad de las variables (aunque con una caída, un pozo y después una meseta) y una dispersión bastante homogenea de residuos. No hay quiebres que evidencien un patrón al que debamos prestarle atención. Sí debemos prestar atención al residuo 19, que ya ha sido mencionado, y el 12. 
+
+*Scale-location* muestra la distribución de los reisduos a lo largo del rango de predictores y en el gráfico la distribución parece aleatoria aunque tiende a crecer exponencialmente hacia el final. 
+
+Como conclusión de los dos apartados anteriores podemos aceptar el supuesto de homocedasticidad. 
+
+*Q-Q Plot* muestra una distribución normal de los residuos, con desviaciones a considerar en los ya mencionados residuos 12 y 19.
+
+*Residuals vs Leverage* arroja que ningún valor sobrepasa las lineas de Cook. Otra vez el valor 19 muestra diferencias del resto y deberíamos prestar más atención ya que podría ser una observación influyente y/o anormal. 
+
+
+## Conclusiones 
+
+Hasta el momento trabajamos con distintos modelos de regresión y abordamos los residuos de los mismos para intentar entender qué variables pueden ayudarnos a predecir y comprender mejor los desempeños de los equipos de primera división del fútbol argentino en el torneo 2015. Encontramos correlación entre la variable *Pts* y las variables predictoras *Pts_2014*, *inversion_abs* y *valor* que arrojaron los valores más altos del coeficiente de correlación de Pearson. 
+
+Los coeficientes de las regresiones lineales simples indican que la relación entre *Pts* y *valor* es la más solida, el R cuadrado ajustado es de *0.359*, esto significa que la variable *valor* explica el *35.9%* de la variabilidad de los puntos obtenidos en el torneo 2015, es decir nuestra variable *Pts*. 
+
+La regresión entre *Pts* y *Pts_2014* arrojó un valor de R cuadrado ajustado de *0.3019*, mientras que en la regresión entre *Pts* e *inversion_abs* el R cuadrado ajustado fue de *0.2589*. 
+
+En cuanto a regresiones lineales múltiples, en la primera se trabajó con todas las variables predictoras del data set, mientras que en el segundo caso seleccionamos  las tres variables de mayor significancia según su p-value: *Pts_2014*, *inversion_relativa* y *valor*. El valor del multiple R-squared fue *0.7028* al trabajar con todas las variables y *0.6139* para el caso en el que solo trabajamos con las seleccionadas. Por otro lado, casi no hubo diferencia en el valor de adjusted R-squared, donde fueron *0.5691* y *0.5694* respectivamente. 
+
+La regresión multiple con las variables seleccionadas arrojó un coeficiente de determinación mayor, y que explica que el *56.94%* de la variabilidad de la variable *Pts*. 
+
+Al ver los residuos, nos encontramos con que gráficos muestran que en líneas generales estos tienen una distribución aleatoria, que tienden a ser normales y cumplen los principios de linealidad y homocedasticidad. Sí hay valores particulares a los que deberíamos prestar atención, como por ejemplo 19 (en mayor medida), 12, 20 y 30.
+
+Si bien pueden servir como orientación, estos modelos no tienen un caracter predictivo determinante ya que la linealiad no es absoluta y nuestros modelos tampoco. La predicciones pueden ayudarnos a formar un nuevo paradigma de comprensión y predicción aproximado y matemático que vaya más allá de la suposición a la que el deporte acostumbra. Pero, en el fútbol intervienen muchísimos factores que exceden los que conforman nuestro data set y que agotan también la capacidad de estos modelos (simples y múltiples) de regresión lineal.
